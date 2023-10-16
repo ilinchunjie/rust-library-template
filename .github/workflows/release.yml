@@ -32,7 +32,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [macos-x86_64, macos-aarch64, win64-msvc, win32-msvc, linux-x86_64, linux-aarch64, ios-universal]
+        build: [macos-x86_64, macos-aarch64, win64-msvc, win32-msvc, linux-x86_64, linux-aarch64]
         include:
           - build: macos-x86_64
             os: macos-12
