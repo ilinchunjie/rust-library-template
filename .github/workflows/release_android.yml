@@ -1,0 +1,88 @@
+name: release
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+-android"
+
+jobs:
+  create-release:
+    name: create-release
+    runs-on: ubuntu-22.04
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+    steps:
+      - name: get version
+        shell: bash
+        if: env.APP_VERSION == ''
+        run: |
+          echo "APP_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "${{ env.APP_VERSION }}"
+      - name: create release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.APP_VERSION }}
+          release_name: ${{ env.APP_VERSION }}
+
+  build:
+    name: build
+    needs: ['create-release']
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [android-aarch64, android-armv7, android-x86_64, android-i686]
+        include:
+          - build: android-aarch64
+            os: macos-12
+            target: aarch64-linux-android
+          - build: android-armv7
+            os: macos-12
+            target: armv7-linux-androideabi
+          - build: android-x86_64
+            os: macos-12
+            target: x86_64-linux-android
+          - build: android-i686
+            os: macos-12
+            target: i686-linux-android
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: install rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.73.0
+          target: ${{ matrix.target }}
+
+      - name: install ndk
+        shell: bash
+        run: |
+          cargo install cargo-ndk
+
+      - name: build binary
+        run: |
+          mkdir -p "target/${{ matrix.target }}/release"
+          cargo ndk -t ${{ matrix.target }} build --release
+
+      - name: build archive
+        shell: bash
+        run: |
+          staging="test-${{ matrix.target }}"
+          mkdir -p "$staging"
+          
+          cp "target/${{ matrix.target }}/release/libtest.so" "$staging"
+          tar czf "$staging.tar.gz" "$staging"
+          echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+
+      - name: upload
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream
