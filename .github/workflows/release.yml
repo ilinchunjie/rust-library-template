@@ -78,10 +78,14 @@ jobs:
           staging="test-${{ matrix.target }}"
           mkdir -p "$staging"
           
-          if [ "${{ matrix.os }}" = "windows-2022" ]; then
+          if [ "${{ matrix.build }}" = "win32-msvc" ] || [ "${{ matrix.build }}" = "win64-msvc" ]; then
             cp "target/${{ matrix.target }}/release/test.dll" "$staging"
             7z a "$staging.zip" "$staging"
             echo "ASSET=$staging.zip" >> $GITHUB_ENV
+          elif [ "${{ matrix.build }}" = "macos-x86_64" ] || [ "${{ matrix.build }}" = "macos-aarch64" ]; then
+            cp "target/${{ matrix.target }}/release/test.a" "$staging"
+            tar czf "$staging.tar.gz" "$staging"
+            echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
           else
             cp "target/${{ matrix.target }}/release/test.so" "$staging"
             tar czf "$staging.tar.gz" "$staging"
