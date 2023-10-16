@@ -10,3 +10,7 @@ edition = "2021"
 [lib]
 name = "test"
 crate-type = ["cdylib", "staticlib"]
+
+[profile.release]
+lto = true
+opt-level = 'z'

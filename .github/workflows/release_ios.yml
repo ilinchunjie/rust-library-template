@@ -1,0 +1,71 @@
+name: release
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  create-release:
+    name: create-release
+    runs-on: ubuntu-22.04
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+    steps:
+      - name: get version
+        shell: bash
+        if: env.APP_VERSION == ''
+        run: |
+          echo "APP_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "${{ env.APP_VERSION }}"
+      - name: create release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.APP_VERSION }}
+          release_name: ${{ env.APP_VERSION }}
+
+  build:
+    name: build
+    needs: ['create-release']
+    runs-on: macos-12
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: install rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.73.0
+          target: aarch64-apple-ios, x86_64-apple-ios
+
+      - name: install lipo
+        shell: bash
+        run: |
+          cargo install cargo-lipo
+
+      - name: build binary
+        run: |
+          cargo lipo --release
+
+      - name: build archive
+        shell: bash
+        run: |
+          staging="test-universal-apple-ios"
+          mkdir -p "$staging"
+          
+          cp "target/universal/release/libtest.a" "$staging"
+          tar czf "$staging.tar.gz" "$staging"
+          echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+
+      - name: upload
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream
