@@ -2,7 +2,7 @@ name: release
 on:
   push:
     tags:
-      - "ios-[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-ios"
 
 jobs:
   create-release:
@@ -41,14 +41,17 @@ jobs:
           toolchain: 1.73.0
           target: aarch64-apple-ios, x86_64-apple-ios
 
-      - name: install lipo
+      - name: install cross
         shell: bash
         run: |
-          cargo install cargo-lipo
+          cargo install cross
 
       - name: build binary
         run: |
-          cargo lipo --release
+          cross build --release --target aarch64-apple-ios
+          cross build --release --target x86_64-apple-ios
+          mkdir -p "target/universal/release"
+          lipo -create -output target/universal/release/libtest.a target/aarch64-apple-ios/release/libtest.a target/x86_64-apple-ios/release/libtest.a
 
       - name: build archive
         shell: bash
